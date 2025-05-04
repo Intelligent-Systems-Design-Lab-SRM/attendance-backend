@@ -229,6 +229,41 @@ app.get('/', async (req, res) => {
     res.send(responseText);
   });
   
-
+  app.get('/cron/auto-checkout', async (req, res) => {
+    try {
+      // Step 1: Get current occupants
+      const response = await axios.get(`${process.env.API_BASE_URL || 'http://localhost:3000'}/analytics/current`);
+      const users = response.data.users;
+  
+      // Step 2: Check each user out
+      const results = await Promise.all(users.map(async (user) => {
+        const payload = {
+          rfid_uid: user.rfid_uid,
+          Check: "OUT"
+        };
+  
+        const { data } = await axios.post(
+          `${SUPABASE_URL}/rest/v1/attendance`,
+          payload,
+          {
+            headers: supabaseHeaders
+          }
+        );
+  
+        return { name: user.name, status: 'Checked Out ✅' };
+      }));
+  
+      res.status(200).json({
+        message: `✅ Auto-checkout complete for ${results.length} user(s)`,
+        results
+      });
+    } catch (error) {
+      res.status(500).json({
+        error: error.message,
+        message: "❌ Auto-checkout failed"
+      });
+    }
+  });
+  
 
 export default app;
