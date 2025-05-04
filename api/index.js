@@ -150,9 +150,85 @@ app.get("/api/attendance", async (req, res) => {
     }
 });
 
-app.get('/', (req, res) => {
-    res.send('Attendance Analytics API working ✅');
+
+app.post('/force-checkout', async (req, res) => {
+    try {
+        const response = await axios.get(`${process.env.BASE_URL}/analytics/current`); 
+        const currentUsers = response.data.users;
+
+        const now = new Date().toISOString();
+
+        const updates = await Promise.all(currentUsers.map(user => {
+            return axios.post(`${SUPABASE_URL}/rest/v1/attendance`, {
+                rfid_uid: user.rfid_uid,
+                Check: "OUT",
+                created_at: now
+            }, {
+                headers: supabaseHeaders
+            });
+        }));
+
+        res.status(200).json({ message: `${currentUsers.length} users force-checked out.` });
+    } catch (error) {
+        console.error('Force checkout failed:', error.message);
+        res.status(500).json({ error: 'Force checkout failed' });
+    }
 });
 
-// Export as a Vercel-compatible handler
+
+
+
+
+app.get('/', async (req, res) => {
+    const responseText = `
+  ------------------------------------------------------------
+  🎓 \x1b[36mIntelligent Systems Design Lab - Attendance API\x1b[0m ✅
+  ------------------------------------------------------------
+  
+  📍 \x1b[33mLab:\x1b[0m       Intelligent Systems Design Lab, SRMIST 🧠
+  🌐 \x1b[33mWebsite:\x1b[0m   https://isdlab-webpage.vercel.app/
+  📊 \x1b[33mApp:\x1b[0m       https://isdlab-attendance.vercel.app/
+  📦 \x1b[33mRepo:\x1b[0m      https://github.com/Intelligent-Systems-Design-Lab-SRM
+  
+  ------------------------------------------------------------
+  🧑‍💻 \x1b[36mDeveloper:\x1b[0m Harshil Malhotra 💡
+  ------------------------------------------------------------
+  
+  🔗 \x1b[35mGitHub:\x1b[0m     https://github.com/Harshilmalhotra
+  🔗 \x1b[35mLinkedIn:\x1b[0m   https://www.linkedin.com/in/harshilmalhotra/
+  🔗 \x1b[35mPortfolio:\x1b[0m  https://harshil-malhotra.vercel.app/
+  🔗 \x1b[35mTwitter:\x1b[0m    https://x.com/Harshil_on_X
+  
+  ------------------------------------------------------------
+  ✅ \x1b[32mSystem Status\x1b[0m
+  ------------------------------------------------------------
+  
+  📡 \x1b[36mAPI:\x1b[0m             /analytics/current ............ ✅
+  📈 \x1b[36mSupabase:\x1b[0m       Database Connectivity .......... ✅
+  🖥️  \x1b[36mFrontend:\x1b[0m       ISD App Responsive UI .......... ✅
+  ⏱️  \x1b[36mScheduled Tasks:\x1b[0m 6:00 PM Checkout Enabled ...... ✅
+  
+  ------------------------------------------------------------
+  📘 \x1b[34mEndpoints Available:\x1b[0m
+  ------------------------------------------------------------
+  
+  ➡️  /analytics/current        → Current lab occupants
+  ➡️  /analytics/weekly         → Weekly occupancy trends
+  ➡️  /analytics/rush-hours     → Most active lab hours
+  ➡️  /api/attendance?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
+  
+  ------------------------------------------------------------
+  
+  🚀 Built and Maintained with ❤️ by Harshil Malhotra
+  🔧 Powered by Node.js, Express, Supabase, and Vercel
+  
+  ------------------------------------------------------------
+  `;
+  
+    res.setHeader('Content-Type', 'text/plain');
+    res.send(responseText);
+  });
+  
+
+
 export default app;
