@@ -179,91 +179,57 @@ app.post('/force-checkout', async (req, res) => {
 
 
 
-app.get('/', async (req, res) => {
-    const responseText = `
-  ------------------------------------------------------------
-  🎓 \x1b[36mIntelligent Systems Design Lab - Attendance API\x1b[0m ✅
-  ------------------------------------------------------------
-  
-  📍 \x1b[33mLab:\x1b[0m       Intelligent Systems Design Lab, SRMIST 🧠
-  🌐 \x1b[33mWebsite:\x1b[0m   https://isdlab-webpage.vercel.app/
-  📊 \x1b[33mApp:\x1b[0m       https://isdlab-attendance.vercel.app/
-  📦 \x1b[33mRepo:\x1b[0m      https://github.com/Intelligent-Systems-Design-Lab-SRM
-  
-  ------------------------------------------------------------
-  🧑‍💻 \x1b[36mDeveloper:\x1b[0m Harshil Malhotra 💡
-  ------------------------------------------------------------
-  
-  🔗 \x1b[35mGitHub:\x1b[0m     https://github.com/Harshilmalhotra
-  🔗 \x1b[35mLinkedIn:\x1b[0m   https://www.linkedin.com/in/harshilmalhotra/
-  🔗 \x1b[35mPortfolio:\x1b[0m  https://harshil-malhotra.vercel.app/
-  🔗 \x1b[35mTwitter:\x1b[0m    https://x.com/Harshil_on_X
-  
-  ------------------------------------------------------------
-  ✅ \x1b[32mSystem Status\x1b[0m
-  ------------------------------------------------------------
-  
-  📡 \x1b[36mAPI:\x1b[0m             /analytics/current ............ ✅
-  📈 \x1b[36mSupabase:\x1b[0m       Database Connectivity .......... ✅
-  🖥️  \x1b[36mFrontend:\x1b[0m       ISD App Responsive UI .......... ✅
-  ⏱️  \x1b[36mScheduled Tasks:\x1b[0m 6:00 PM Checkout Enabled ...... ✅
-  
-  ------------------------------------------------------------
-  📘 \x1b[34mEndpoints Available:\x1b[0m
-  ------------------------------------------------------------
-  
-  ➡️  /analytics/current        → Current lab occupants
-  ➡️  /analytics/weekly         → Weekly occupancy trends
-  ➡️  /analytics/rush-hours     → Most active lab hours
-  ➡️  /api/attendance?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
-  
-  ------------------------------------------------------------
-  
-  🚀 Built and Maintained with ❤️ by Harshil Malhotra
-  🔧 Powered by Node.js, Express, Supabase, and Vercel
-  
-  ------------------------------------------------------------
-  `;
-  
-    res.setHeader('Content-Type', 'text/plain');
-    res.send(responseText);
-  });
-  
-  app.get('/cron/auto-checkout', async (req, res) => {
+app.get('/', (req, res) => {
+    res.send('Attendance Analytics API working ✅');
+});
+
+
+
+app.get('/cron/auto-checkout', async (req, res) => {
     try {
-      // Step 1: Get current occupants
-      const response = await axios.get(`${process.env.API_BASE_URL || 'http://localhost:3000'}/analytics/current`);
-      const users = response.data.users;
-  
-      // Step 2: Check each user out
-      const results = await Promise.all(users.map(async (user) => {
-        const payload = {
-          rfid_uid: user.rfid_uid,
-          Check: "OUT"
-        };
-  
-        const { data } = await axios.post(
-          `${SUPABASE_URL}/rest/v1/attendance`,
-          payload,
-          {
-            headers: supabaseHeaders
-          }
-        );
-  
-        return { name: user.name, status: 'Checked Out ✅' };
-      }));
-  
-      res.status(200).json({
-        message: `✅ Auto-checkout complete for ${results.length} user(s)`,
-        results
-      });
+        console.log(`⏰ Auto-checkout triggered at ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+
+        // Fetch users currently inside the lab
+        const { data } = await axios.get(`https://attendance-backend-pied.vercel.app/analytics/current`);
+        const usersInside = data.users;
+
+        if (!usersInside.length) {
+            return res.send(`<pre style="color:green;">✅ No users to check out at 6 PM. Lab is empty.</pre>`);
+        }
+
+        let results = [];
+
+        for (const user of usersInside) {
+            try {
+                const payload = {
+                    rfid_uid: user.rfid_uid,
+                    Check: "OUT"
+                };
+
+                const response = await axios.post(`${SUPABASE_URL}/rest/v1/attendance`, payload, {
+                    headers: supabaseHeaders
+                });
+
+                results.push(`✅ Checked out: ${user.name} (${user.rfid_uid}) at ${new Date().toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' })}`);
+            } catch (err) {
+                results.push(`❌ Failed to check out ${user.name} (${user.rfid_uid}): ${err.message}`);
+            }
+        }
+
+        const html = `
+        <pre style="background:#111;color:#0f0;padding:1em;border-radius:10px;">
+🔁 Auto-checkout Results for ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}:
+
+${results.join('\n')}
+        </pre>`;
+
+        res.send(html);
+
     } catch (error) {
-      res.status(500).json({
-        error: error.message,
-        message: "❌ Auto-checkout failed"
-      });
+        console.error("❌ Auto-checkout failed:", error.message);
+        return res.status(500).send(`<pre style="color:red;">❌ Auto-checkout failed: ${error.message}</pre>`);
     }
-  });
-  
+});
+
 
 export default app;
